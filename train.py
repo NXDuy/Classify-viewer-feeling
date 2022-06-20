@@ -1,3 +1,5 @@
+from numpy import zeros
+from sklearn.metrics import f1_score
 import torch
 from logis_model.model import LogisticRegression
 from utils.logis_database import FeelingClassify
@@ -10,9 +12,9 @@ def get_args(n_features):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
     training_params ={
-        'learning_rate': 0.01,
+        'learning_rate': 0.001,
         'batch_size': 50,
-        'epochs':20,
+        'epochs': 20,
         'device': device,
         'momentum': 0.9, 
         'n_features': n_features,
@@ -32,25 +34,25 @@ def load_model(training_params):
     batch_size = training_params['batch_size']
     momentum = training_params['momentum']
     device = training_params['device']
-    MAX_LOSS = 1e5
+    # MAX_LOSS = 1e5
 
     model = LogisticRegression(num_feature=input_dim, num_class=6, learning_rate=learning_rate, momentum=momentum, weight_decay=0.001)
     best_params = torch.ones_like(model.parameters())
     best_params.copy_(model.parameters())
-    best_loss = MAX_LOSS
+    best_f1_score = 0
 
     if exists("checkpoint/logis.pth"):
         last_model = torch.load('checkpoint/logis.pth', map_location=device)
         model.load_weight(last_model['params'])
-        best_loss = last_model['loss']
+        best_f1_score = last_model['f1_score']
         best_params = last_model['params']
     
-    return model, best_params, best_loss
+    return model, best_params, best_f1_score
 
-def save_model(best_params, best_loss):
+def save_model(best_params, best_f1_score):
     params = {
         'params': best_params,
-        'loss': best_loss
+        'f1_score': best_f1_score 
     }
     torch.save(params, "checkpoint/logis.pth")
 
@@ -61,8 +63,9 @@ def split_train_test():
 
     train_size = int(n_samples*training_params['n_samples'])
     test_size = n_samples - train_size
+    # print('Train_size & test size:', train_size, test_size)
 
-    train_set, test_set = random_split(database, [train_size, test_size], generator=torch.Generator().manual_seed(72))
+    train_set, test_set = random_split(database, [train_size, test_size])
     train_loader = DataLoader(train_set)
     test_loader = DataLoader(test_set)
 
@@ -84,16 +87,40 @@ def plot_loss(epoch_loss):
     plt.show()
     return
 
+def precision_recall_calculate(false_predicted, true_predicted, output_class):
+    num_class = output_class.shape[1]
+    precision = 0
+    recall = 0
+    f1_score = 0
+
+    for class_index in range(num_class): 
+        true_positive = true_predicted[:, class_index].item()
+        false_positive = false_predicted[:, class_index].item()
+        true_class = output_class[:, class_index].item()
+
+        cur_class_precision = true_positive/(true_positive + false_positive + 1e-8)
+        cur_class_recall = true_positive/(true_class + 1e-8)
+       
+        f1_score += 2*cur_class_precision*cur_class_recall/(cur_class_precision+cur_class_recall+1e-8)
+        precision += cur_class_precision       
+        recall += cur_class_recall
+        
+    return precision/num_class, recall/num_class, f1_score/num_class
+
+
 def train(train_loader, training_params):
     
     epochs = training_params['epochs'] 
-    device = training_params['device']
-    model, best_params, best_loss = load_model(training_params=training_params)
+    # device = training_params['device']
+    model, best_params, best_f1_score = load_model(training_params=training_params)
     epoch_error =  list()
     # print(model.parameters(), best_params, best_loss)
     for epoch in range(epochs):
         total_loss = 0
         total_samples = 0
+        total_false_predicted = torch.zeros(1, 6)
+        total_output_class = torch.zeros(1, 6)
+        total_true_predicted = torch.zeros(1, 6)
         # model.learning_rate = lr_schedular(cur_epoch=epoch+1, lr=model.learning_rate, lr_decay=0.01, epoch_decay=250)
         for input, output in train_loader:
 
@@ -103,24 +130,46 @@ def train(train_loader, training_params):
             model.train()
             model.zero_grad()
 
-        if math.isnan(total_loss) == False and best_loss > total_loss/total_samples:
-            best_loss = total_loss/total_samples
+            predicted_class = model.predict_class(predicted)
+            if torch.all(output.eq(predicted_class)).item() == True:
+                total_true_predicted += predicted_class
+            else:
+                total_false_predicted += predicted_class
+
+            # total_predicted_class = total_predicted_class + predicted_class
+            total_output_class = total_output_class + output
+            # sum_class = sum_class + output
+            # print(output)
+
+        epoch_precision, epoch_recall, epoch_f1_score = precision_recall_calculate(total_false_predicted, total_true_predicted, total_output_class)
+
+        if math.isnan(total_loss) == False and best_f1_score < epoch_f1_score:
+            best_f1_score = epoch_f1_score
             best_params.copy_(model.parameters())
         
         epoch_error.append([epoch, total_loss*1.0/total_samples])
-        print(f'{epoch} with loss mean {total_loss*1.0/total_samples}')
 
-    save_model(best_params=best_params, best_loss=best_loss)
-    
+        print(f'{epoch} with loss mean {total_loss*1.0/total_samples}')
+        print(f'{epoch} with precision {epoch_precision}')
+        print(f'{epoch} with recall {epoch_recall}')
+        print('-------------------------------------------------')
+        # print('Total class:', sum_class)
+
+    save_model(best_params=best_params, best_f1_score=best_f1_score)
     return epoch_error
 
 def evaluate(training_params, test_loader):
     model = load_model(training_params)
     # device = training_params['device']
-    model, best_params, best_loss = load_model(training_params=training_params)
+    model, best_params, best_f1_score = load_model(training_params=training_params)
     # print('Eval: ',model.parameters(), best_params, best_loss)
+    # sum_class = torch.zeros(1, 6)
     true_samples = 0
     total_samples = 0
+    total_false_predicted = torch.zeros(1, 6)
+    total_output_class = torch.zeros(1, 6)
+    total_true_predicted = torch.zeros(1, 6)
+
     for input, output in test_loader:
 
         predicted_prob = model(input)
@@ -128,10 +177,20 @@ def evaluate(training_params, test_loader):
 
         if torch.all(output.eq(predicted_class)).item() == True:
             true_samples += 1
+            total_true_predicted += predicted_class
+        else:
+            total_false_predicted += predicted_class
 
+        total_output_class += output
         total_samples += 1
         
+    
+    eval_precision, eval_recall, eval_f1_score = precision_recall_calculate(total_false_predicted, total_true_predicted, total_output_class)
     print(f'Mean Loss For testing data: {true_samples*1.0/total_samples}')
+    print(f'Precision For testing data: {eval_precision}')
+    print(f'Recall For testing data: {eval_recall}')
+
+    # print('Total class eval:', sum_class)
 
 if __name__ == '__main__':
     train_and_evaluate()

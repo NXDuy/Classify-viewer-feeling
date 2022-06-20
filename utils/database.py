@@ -1,5 +1,6 @@
 import os
 import sys
+from xml.dom.pulldom import default_bufsize
 PROJECT_ROOT = os.path.abspath(os.path.join(
                   os.path.dirname(__file__), 
                   os.pardir)
@@ -11,6 +12,7 @@ import torch
 import pandas as pd
 import re
 from torch.utils.data import Dataset
+from sklearn.preprocessing import OneHotEncoder
 
 def read_file(file_dir, columns=None):
     try:
@@ -58,10 +60,26 @@ def read_file(file_dir, columns=None):
     using_data['end time'] = using_data['end time']/using_data['end time'].max()
     using_data['Unnamed: 11'] = using_data['Unnamed: 11']/using_data['Unnamed: 11'].max()
     
-    # using_data = using_data.dropna(axis=0)
+    # Label encoding
+    label_encoder = OneHotEncoder(handle_unknown='ignore')
+    encoder_data = pd.DataFrame(label_encoder.fit_transform(using_data[['venue']]).toarray())
+    using_data = using_data.join(encoder_data)
+    using_data.drop(columns=['venue'], inplace=True)
 
-    input_data = using_data[['start time', 'end time', 'Unnamed: 11', 'describe how to make it']]
-    output_data = using_data["viewer feeling of youtuber's style "]
+    # Rename columns
+    default_columns = ['start time', 'end time', 'Unnamed: 11', "viewer feeling of youtuber's style ", 'describe how to make it']
+    columns = default_columns + list(label_encoder.categories_[0])
+    using_data.columns = columns
+    using_data = using_data.dropna(axis=0)
+
+    input_data = using_data.loc[:, using_data.columns != "viewer feeling of youtuber's style "]
+    output_data = using_data[["viewer feeling of youtuber's style "]]
+    
+    # print(output_data)
+
+    # using_data.to_csv('Feeling.csv')
+    # print(input_data.tail())
+    # print(output_data.columns)
     # print(using_data.dtypes)
     return torch.tensor(input_data.values, dtype=torch.float32), torch.tensor(output_data.values, dtype=torch.float32)
         
@@ -116,7 +134,7 @@ def lr_schedular(cur_epoch, lr, lr_decay, epoch_decay):
 
 FILE_DIR = './Data/Data_AIL.xlsx'
 COLUMNS = ['start time', 'end time', 'Unnamed: 11',
-            "viewer feeling of youtuber's style ", 'describe how to make it']
+            "viewer feeling of youtuber's style ", 'describe how to make it', 'venue']
 
 class FoodFeeling(Dataset):
     def __init__(self, file_dir=FILE_DIR, columns=COLUMNS, has_bias=True):
@@ -136,4 +154,5 @@ class FoodFeeling(Dataset):
     def __len__(self):
         return self.n_samples
 
-read_file(FILE_DIR, COLUMNS)
+# input, output = read_file(FILE_DIR, COLUMNS)
+# print(output)

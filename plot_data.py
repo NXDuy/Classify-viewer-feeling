@@ -33,7 +33,7 @@ def read_file(file_dir, columns=None):
 
     using_data = using_data[index_data]
     
-    location_list = using_data.groupby(['venue', "viewer feeling of youtuber's style "], as_index=True).size()
+    location_list = using_data.groupby(["viewer feeling of youtuber's style "], as_index=True).size()
     return location_list
 
 FILE_DIR = './Data/Data_AIL.xlsx'
