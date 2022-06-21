@@ -1,5 +1,6 @@
 from multiprocessing.sharedctypes import Value
 import os
+# from statistics import LinearRegression
 import sys
 PROJECT_ROOT = os.path.abspath(os.path.join(
                   os.path.dirname(__file__), 
@@ -10,11 +11,13 @@ sys.path.append(PROJECT_ROOT)
 import torch
 from torch import nn
 import math
-from utils.logis_database import FeelingClassify
-from torch.utils.data import DataLoader
+# from utils.logis_database import FeelingClassify
+# from torch.utils.data import DataLoader
+
 class LogisticRegression(nn.Module):
-    def __init__(self, num_feature, num_class, learning_rate =0.001, momentum=0.9, weight_decay=0.01):
+    def __init__(self, num_feature, num_class, learning_rate=0.001, momentum=0.9, weight_decay=0.01, device=torch.device('cpu')):
         # Initial setup for model
+        super(LogisticRegression, self).__init__()
         self.num_feature = num_feature
         self.num_class = num_class
         self.learning_rate = learning_rate
@@ -23,12 +26,12 @@ class LogisticRegression(nn.Module):
 
         # Model parameter using for prediction
         self.params = torch.ones(num_class, num_feature) # Must transpose before make prediction
-        self.bias = torch.zeros(1, num_class)
+        # self.bias = torch.zeros(1, num_class).to
         self.params_change = torch.zeros(num_class, num_feature)
 
         # Model optimization
         self.has_change = False
-        self.grad = torch.ones(num_class, num_feature) 
+        self.grad = torch.ones(num_class, num_feature)
     
     def CEloss(self, output_probability, true_output):
         # true output size: 3750, 6
@@ -151,5 +154,5 @@ class LogisticRegression(nn.Module):
 
 # print('Probability of logis regression: ', true_samples*1.0/total_samples)
 
-
-
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# model = LogisticRegression(11, 6).to(device)

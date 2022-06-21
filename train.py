@@ -31,12 +31,15 @@ def get_args(n_features):
 def load_model(training_params):
     input_dim = training_params['n_features']
     learning_rate = training_params['learning_rate']
-    batch_size = training_params['batch_size']
+    # batch_size = training_params['batch_size']
     momentum = training_params['momentum']
     device = training_params['device']
     # MAX_LOSS = 1e5
 
-    model = LogisticRegression(num_feature=input_dim, num_class=6, learning_rate=learning_rate, momentum=momentum, weight_decay=0.001)
+    model = LogisticRegression(
+                num_feature=input_dim, num_class=6, learning_rate=learning_rate, 
+                momentum=momentum, weight_decay=0.001, device=device)
+
     best_params = torch.ones_like(model.parameters())
     best_params.copy_(model.parameters())
     best_f1_score = 0
@@ -46,7 +49,8 @@ def load_model(training_params):
         model.load_weight(last_model['params'])
         best_f1_score = last_model['f1_score']
         best_params = last_model['params']
-    
+    # print('ahihi')
+    model = model.to(device)
     return model, best_params, best_f1_score
 
 def save_model(best_params, best_f1_score):
@@ -73,6 +77,7 @@ def split_train_test():
 
 def train_and_evaluate():
     training_params ,train_loader, test_loader = split_train_test()
+    # load_model(training_params)
     epoch_error = train(train_loader, training_params)
     evaluate(training_params, test_loader)
     plot_loss(epoch_error)
@@ -111,18 +116,23 @@ def precision_recall_calculate(false_predicted, true_predicted, output_class):
 def train(train_loader, training_params):
     
     epochs = training_params['epochs'] 
-    # device = training_params['device']
+    device = training_params['device']
+
     model, best_params, best_f1_score = load_model(training_params=training_params)
     epoch_error =  list()
     # print(model.parameters(), best_params, best_loss)
     for epoch in range(epochs):
         total_loss = 0
         total_samples = 0
-        total_false_predicted = torch.zeros(1, 6)
-        total_output_class = torch.zeros(1, 6)
-        total_true_predicted = torch.zeros(1, 6)
+
+        total_false_predicted = torch.zeros(1, 6).to(device)
+        total_output_class = torch.zeros(1, 6).to(device)
+        total_true_predicted = torch.zeros(1, 6).to(device)
+
         # model.learning_rate = lr_schedular(cur_epoch=epoch+1, lr=model.learning_rate, lr_decay=0.01, epoch_decay=250)
         for input, output in train_loader:
+            input = input.to(device)
+            output = output.to(device)
 
             predicted = model(input)
             total_loss += model.CEloss(predicted, output)
@@ -160,17 +170,21 @@ def train(train_loader, training_params):
 
 def evaluate(training_params, test_loader):
     model = load_model(training_params)
-    # device = training_params['device']
+    device = training_params['device']
+
     model, best_params, best_f1_score = load_model(training_params=training_params)
     # print('Eval: ',model.parameters(), best_params, best_loss)
     # sum_class = torch.zeros(1, 6)
     true_samples = 0
     total_samples = 0
-    total_false_predicted = torch.zeros(1, 6)
-    total_output_class = torch.zeros(1, 6)
-    total_true_predicted = torch.zeros(1, 6)
+
+    total_false_predicted = torch.zeros(1, 6).to(device)
+    total_output_class = torch.zeros(1, 6).to(device)
+    total_true_predicted = torch.zeros(1, 6).to(device)
 
     for input, output in test_loader:
+        input = input.to(device)
+        output = output.to(device)
 
         predicted_prob = model(input)
         predicted_class = model.predict_class(predicted_prob)
@@ -190,7 +204,6 @@ def evaluate(training_params, test_loader):
     print(f'Precision For testing data: {eval_precision}')
     print(f'Recall For testing data: {eval_recall}')
 
-    # print('Total class eval:', sum_class)
-
 if __name__ == '__main__':
     train_and_evaluate()
+    
