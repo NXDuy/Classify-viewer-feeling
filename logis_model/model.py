@@ -15,7 +15,7 @@ import math
 # from torch.utils.data import DataLoader
 
 class LogisticRegression(nn.Module):
-    def __init__(self, num_feature, num_class, learning_rate=0.001, momentum=0.9, weight_decay=0.01, device=torch.device('cpu')):
+    def __init__(self, num_feature, num_class, learning_rate=0.001, momentum=0.9, weight_decay=0.01):
         # Initial setup for model
         super(LogisticRegression, self).__init__()
         self.num_feature = num_feature
@@ -23,6 +23,7 @@ class LogisticRegression(nn.Module):
         self.learning_rate = learning_rate
         self.momentum = momentum 
         self.weight_decay = weight_decay
+        
 
         # Model parameter using for prediction
         self.params = torch.ones(num_class, num_feature) # Must transpose before make prediction

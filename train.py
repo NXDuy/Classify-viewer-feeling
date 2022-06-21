@@ -38,7 +38,7 @@ def load_model(training_params):
 
     model = LogisticRegression(
                 num_feature=input_dim, num_class=6, learning_rate=learning_rate, 
-                momentum=momentum, weight_decay=0.001, device=device)
+                momentum=momentum, weight_decay=0.001)
 
     best_params = torch.ones_like(model.parameters())
     best_params.copy_(model.parameters())
@@ -50,7 +50,6 @@ def load_model(training_params):
         best_f1_score = last_model['f1_score']
         best_params = last_model['params']
     # print('ahihi')
-    model = model.to(device)
     return model, best_params, best_f1_score
 
 def save_model(best_params, best_f1_score):
@@ -125,15 +124,12 @@ def train(train_loader, training_params):
         total_loss = 0
         total_samples = 0
 
-        total_false_predicted = torch.zeros(1, 6).to(device)
-        total_output_class = torch.zeros(1, 6).to(device)
-        total_true_predicted = torch.zeros(1, 6).to(device)
+        total_false_predicted = torch.zeros(1, 6)
+        total_output_class = torch.zeros(1, 6)
+        total_true_predicted = torch.zeros(1, 6)
 
         # model.learning_rate = lr_schedular(cur_epoch=epoch+1, lr=model.learning_rate, lr_decay=0.01, epoch_decay=250)
         for input, output in train_loader:
-            input = input.to(device)
-            output = output.to(device)
-
             predicted = model(input)
             total_loss += model.CEloss(predicted, output)
             total_samples += 1
@@ -178,14 +174,11 @@ def evaluate(training_params, test_loader):
     true_samples = 0
     total_samples = 0
 
-    total_false_predicted = torch.zeros(1, 6).to(device)
-    total_output_class = torch.zeros(1, 6).to(device)
-    total_true_predicted = torch.zeros(1, 6).to(device)
+    total_false_predicted = torch.zeros(1, 6)
+    total_output_class = torch.zeros(1, 6)
+    total_true_predicted = torch.zeros(1, 6)
 
     for input, output in test_loader:
-        input = input.to(device)
-        output = output.to(device)
-
         predicted_prob = model(input)
         predicted_class = model.predict_class(predicted_prob)
 
