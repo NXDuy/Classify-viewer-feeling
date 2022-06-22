@@ -92,24 +92,12 @@ def plot_loss(epoch_loss):
     return
 
 def precision_recall_calculate(false_predicted, true_predicted, output_class):
-    num_class = output_class.shape[1]
-    precision = 0
-    recall = 0
-    f1_score = 0
+    precision = true_predicted / (false_predicted + true_predicted + 1e-8)
+    recall = true_predicted / (output_class + 1e-8)
+    f1_score = 2*(precision * recall) / (precision + recall + 1e-8)
+    macro_f1_score = torch.mean(f1_score).item()
 
-    for class_index in range(num_class): 
-        true_positive = true_predicted[:, class_index].item()
-        false_positive = false_predicted[:, class_index].item()
-        true_class = output_class[:, class_index].item()
-
-        cur_class_precision = true_positive/(true_positive + false_positive + 1e-8)
-        cur_class_recall = true_positive/(true_class + 1e-8)
-       
-        f1_score += 2*cur_class_precision*cur_class_recall/(cur_class_precision+cur_class_recall+1e-8)
-        precision += cur_class_precision       
-        recall += cur_class_recall
-        
-    return precision/num_class, recall/num_class, f1_score/num_class
+    return precision, recall, f1_score, macro_f1_score
 
 
 def train(train_loader, training_params):
@@ -147,10 +135,10 @@ def train(train_loader, training_params):
             # sum_class = sum_class + output
             # print(output)
 
-        epoch_precision, epoch_recall, epoch_f1_score = precision_recall_calculate(total_false_predicted, total_true_predicted, total_output_class)
+        epoch_precision, epoch_recall, epoch_f1_score, epoch_macro_f1 = precision_recall_calculate(total_false_predicted, total_true_predicted, total_output_class)
 
-        if math.isnan(total_loss) == False and best_f1_score < epoch_f1_score:
-            best_f1_score = epoch_f1_score
+        if math.isnan(total_loss) == False and best_f1_score < epoch_macro_f1:
+            best_f1_score = epoch_macro_f1
             best_params.copy_(model.parameters())
         
         epoch_error.append([epoch, total_loss*1.0/total_samples])
@@ -158,6 +146,8 @@ def train(train_loader, training_params):
         print(f'{epoch} with loss mean {total_loss*1.0/total_samples}')
         print(f'{epoch} with precision {epoch_precision}')
         print(f'{epoch} with recall {epoch_recall}')
+        print(f'{epoch} with f1 score {epoch_f1_score}')
+        print(f'{epoch} with macro f1 score {epoch_macro_f1}')
         print('-------------------------------------------------')
         # print('Total class:', sum_class)
 
@@ -192,10 +182,12 @@ def evaluate(training_params, test_loader):
         total_samples += 1
         
     
-    eval_precision, eval_recall, eval_f1_score = precision_recall_calculate(total_false_predicted, total_true_predicted, total_output_class)
+    epoch_precision, epoch_recall, epoch_f1_score, epoch_macro_f1 = precision_recall_calculate(total_false_predicted, total_true_predicted, total_output_class)
     print(f'Mean Loss For testing data: {true_samples*1.0/total_samples}')
-    print(f'Precision For testing data: {eval_precision}')
-    print(f'Recall For testing data: {eval_recall}')
+    print(f'test with precision {epoch_precision}')
+    print(f'test with recall {epoch_recall}')
+    print(f'test with f1 score {epoch_f1_score}')
+    print(f'test with macro f1 score {epoch_macro_f1}')
 
 if __name__ == '__main__':
     train_and_evaluate()
