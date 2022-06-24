@@ -1,4 +1,4 @@
-# Food-Feeling
+# Classify viewer feeling
 ## Traning and evaluating model
 Before running this code you must change your terminal direction to folder project --> Here is **Classify-viewer-feeling** and install all required packages that are in requirements.txt
 
