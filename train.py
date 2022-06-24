@@ -12,9 +12,9 @@ def get_args(n_features):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
     training_params ={
-        'learning_rate': 0.001,
+        'learning_rate': 0.0001,
         'batch_size': 50,
-        'epochs': 20,
+        'epochs': 200,
         'device': device,
         'momentum': 0.9, 
         'n_features': n_features,
@@ -183,7 +183,7 @@ def evaluate(training_params, test_loader):
         
     
     epoch_precision, epoch_recall, epoch_f1_score, epoch_macro_f1 = precision_recall_calculate(total_false_predicted, total_true_predicted, total_output_class)
-    print(f'Mean Loss For testing data: {true_samples*1.0/total_samples}')
+    print(f'Mean Accuracy For testing data: {true_samples*1.0/total_samples}')
     print(f'test with precision {epoch_precision}')
     print(f'test with recall {epoch_recall}')
     print(f'test with f1 score {epoch_f1_score}')
